@@ -1,0 +1,13 @@
+<launch>
+    <param name="use_sim_time" value="true"/>
+    <!-- Rviz config -->
+    <arg name="path_bag_filename" default="$(find lambda_mapper)/bag/wireFence.bag"/>
+    <node pkg="rviz" type="rviz" name="rviz_mapper" args="-d $(find lambda_mapper)/config/rviz.rviz"/>
+    <node pkg="rosbag" type="play" name="bag_player" args="--clock $(arg path_bag_filename) /lambdaGrid:=/nulla /massGrid:=/nullb /occupancyGrid:=/nullc -r 1"/>
+
+    <rosparam file="$(find lambda_mapper)/config/config.yaml" command="load" />
+
+    <include file="$(find lambda_mapper)/launch/transforms.launch"/>
+    <node pkg="lambda_mapper" type="mapper_node" name="mapper" output="screen"/>
+    
+</launch>
