@@ -17,7 +17,7 @@ Play a simulation with one of our rosbag (mapping of a wire fence):
 
 ## 4. Nodes
 ### 4.1 lambdaMapper
-The lambdaMapper node takes in sensor messages (`sensor\_msgs/LaserScan`) and a massGrid (custom message `msg/MassGrid`) to build a map (custom message `msg/lambdaGrid`).
+The lambdaMapper node takes in sensor messages (`sensor_msgs/LaserScan`) and a massGrid (custom message `msg/MassGrid`) to build a map (custom message `msg/lambdaGrid`).
 The map can be retrieve via a ROS topic or service.
 #### 4.1.1 Subscribed topics
 tf (tf2\_msgs/TFMessages)
@@ -49,6 +49,10 @@ occupancyGrid (navs\_msgs/OccupancyGrid)
 >__robot\_offset__: number of cells between the center of the map and the robot frame  
 
 >__rotation__: true: make the grid rotate around the robot frame; false: the obstacles rotates in the map (lead to deformations in case of large, repeated rotations)
+
+>__lambda\_max__: maximum value that a lambda can take in the map. 1e+5 by default
+
+>__lambda\_unmeasured__: value of lambda in the unmeasured cell. 0 by default
 
 #### sensor namespace
 >__error\_region\_x__: mismeasurement along the x axis of the range sensor in the beam frame, in meters.

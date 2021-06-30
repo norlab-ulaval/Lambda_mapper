@@ -3,7 +3,9 @@ map:
   map_width: 500 #cells
   map_height: 500 #cells
   robot_offset: 0 # offset between robot and the center of the map on the x axis
-  rotation: true #rotation of the map 
+  rotation: true #rotation of the map
+  lambda_max: 1.0e+5 #max value of lambda
+  lambda_unmeasured: 0 #value of lambda in unmeasured cells 
 sensor:
   error_region_x: 0.2 #m
   error_region_y: 0.2 #m

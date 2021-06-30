@@ -57,6 +57,22 @@ LambdaMapper::LambdaMapper(ros::NodeHandle &n):
 		exit(0);
 	}
 
+	//get lambda_max parameter
+	float lambdaMax;
+	if (!n.getParam("/map/lambda_max",lambdaMax)){
+		ROS_ERROR("Fail to get lambda_max param");
+		exit(0);
+	}
+	LambdaCell::set_lambda_max(lambdaMax);
+	
+	//get lambda_unmeasured parameter
+	float lambdaUnmeasured;
+	if (!n.getParam("/map/lambda_unmeasured",lambdaUnmeasured)){
+		ROS_ERROR("Fail to get lambda_unmeasured param");
+		exit(0);
+	}
+	LambdaCell::set_lambda_unmeasured(lambdaUnmeasured);
+
 	// Plot mapper parameters
 	ROS_INFO("[MAPPER]  Creating Lambda Map with parameters:");
 	ROS_INFO("\t- Cell size:\t %.3f m", cell_size);

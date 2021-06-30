@@ -35,6 +35,15 @@ class LambdaCell
 	static void set_error_region_area(float error_region_area_){
 		error_region_area=error_region_area_;
 	}
+
+	static void set_lambda_max(float lambda_max_){
+		lambda_max=lambda_max_;
+	}
+
+	static void set_lambda_unmeasured(float lambda_unmeasured_){
+		lambda_unmeasured=lambda_unmeasured_;
+	}
+
 	static void set_ph(float ph_){
 		ph=ph_;
 	}
@@ -56,6 +65,8 @@ class LambdaCell
 	static float error_region_area;
 	static float ph;
 	static float pm;
+	static float lambda_max;
+	static float lambda_unmeasured;
 
 	std::array<float, MASS_ARRAY_SIZE> pdf_mass_kg;
 	static float mass_array_step; 

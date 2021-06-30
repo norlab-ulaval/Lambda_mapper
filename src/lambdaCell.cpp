@@ -4,6 +4,8 @@ float LambdaCell::error_region_area = 1; //m^2
 float LambdaCell::pm = 1; //.
 float LambdaCell::ph = 1; //.
 float LambdaCell::mass_array_step = 1; //kg
+float LambdaCell::lambda_max = 1e5; 
+float LambdaCell::lambda_unmeasured = 0; 
 
 LambdaCell::LambdaCell(): 
 	hit(0), miss(0),
@@ -48,9 +50,9 @@ float LambdaCell::get_miss() const{
 
 float LambdaCell::lambda() const{
 	if(hit == 0 && miss==0) 
-		return 0;
+		return lambda_unmeasured;
 	else if (miss ==0) 
-		return std::numeric_limits<float>::max();
+		return lambda_max;
 	else
 		return 1./error_region_area*std::log(1+(float)hit/(float)miss);
 }
@@ -60,7 +62,7 @@ float LambdaCell::lambda_up() const{
 
 	float KU = std::min(mu + 1.96 * std::sqrt(sig2), (double)miss+hit);
 	if(KU >= miss+hit)
-		return std::numeric_limits<float>::max();
+		return lambda_max;
 
 	float lU = 1./error_region_area * std::log(KU/(miss+hit-KU)+1.);
 
@@ -68,7 +70,7 @@ float LambdaCell::lambda_up() const{
 }
 float LambdaCell::lambda_low() const{
 	if(hit == 0 && miss == 0) //useful to check if the cell has been measured
-		return 0;
+		return lambda_unmeasured;
 
 	float mu = hit*ph + miss*(1-pm);
 	float sig2 = hit*ph*(1-ph) + miss*pm*(1-pm);
