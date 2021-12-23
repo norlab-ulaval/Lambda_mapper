@@ -38,6 +38,8 @@ class LambdaMapper
 	int map_width;	
 	int map_height;
 	int robotOffsetMap;
+	float angular_filter;
+	float radius_filter;
 	float error_region_area;
 	std::array<float,2> error_region;
 	float ph,pm;

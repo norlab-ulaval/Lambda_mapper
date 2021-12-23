@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(lambda_mapper)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++14 -Wall -Werror -Wextra)
+add_compile_options(-std=c++14 -Wall -Wextra)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)

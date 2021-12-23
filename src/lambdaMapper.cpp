@@ -8,6 +8,7 @@
 #include <tf2/transform_datatypes.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/Twist.h>
 
 //Constructor of lambdaMapper Object
@@ -56,7 +57,7 @@ LambdaMapper::LambdaMapper(ros::NodeHandle &n):
 		ROS_ERROR("Fail to get grid_rotation param");
 		exit(0);
 	}
-
+	
 	//get lambda_max parameter
 	float lambdaMax;
 	if (!n.getParam("/map/lambda_max",lambdaMax)){
@@ -79,6 +80,18 @@ LambdaMapper::LambdaMapper(ros::NodeHandle &n):
 	ROS_INFO("\t- robot offset:\t %d cells", robotOffsetMap);
 	ROS_INFO("\t- Map size:\t %d X %d cells, %.3f X %.3f m ", map_width, map_height, cell_size*(float)map_width, cell_size*(float)map_height);
 	ROS_INFO("[MAPPER]  grid rotaion:\t %s",rotation_map ? "true" : "false");	
+
+	// Get radius filter value	
+	if (!n.getParam("/sensor/radius_filter", this->radius_filter)){
+		ROS_ERROR("Fail to get radius filter value");
+		exit(0);
+	}
+
+	// Get angular filter value	
+	if (!n.getParam("/sensor/angular_filter", this->angular_filter)){
+		ROS_ERROR("Fail to get angular filter value");
+		exit(0);
+	}
 
 	// Get error_region parameters	
 	if ((!n.getParam("/sensor/error_region_x", this->error_region[0])) || (!n.getParam("/sensor/error_region_y", this->error_region[1]))){
@@ -103,7 +116,8 @@ LambdaMapper::LambdaMapper(ros::NodeHandle &n):
 	LambdaCell::set_ph(ph);
 
 	ROS_INFO("[MAPPER]  Creating sensor with parameters:");
-	ROS_INFO("\t- Error region:\t area %.3f X %.3f m (%.3f m^2)", error_region[0], error_region[1], error_region_area); 
+	ROS_INFO("\t- Sensor filters: radial: %.3f m angular: %.3f rad" , radius_filter, angular_filter); 
+	ROS_INFO("\t- Error region: area %.3f X %.3f m (%.3f m^2)", error_region[0], error_region[1], error_region_area); 
 	ROS_INFO("\t- pm:\t %.4f", pm); 
 	ROS_INFO("\t- ph:\t %.4f", ph); 
 
@@ -115,6 +129,7 @@ LambdaMapper::LambdaMapper(ros::NodeHandle &n):
 		ROS_ERROR("Fail to get laserScanTopic param");
 		exit(0);
 	}
+
 	// Get massGridTopic param 
 	std::string massGridTopic;
 	if (!n.getParam("/topics/massGrid", massGridTopic)){
@@ -176,13 +191,12 @@ LambdaMapper::LambdaMapper(ros::NodeHandle &n):
 
 	// Get the transformation between the sensor and the base_link
 	try{
-		this->base_linkTlaser = tfBuff.lookupTransform(robot_frame,sensor_frame, ros::Time(0), ros::Duration(3));
+		this->base_linkTlaser = tfBuff.lookupTransform(robot_frame, sensor_frame, ros::Time(0), ros::Duration(10.0));
 	}
 	catch (tf2::TransformException &ex){
 		ROS_ERROR("Fail to get Transform between sensor and base_link");
 		exit(0);
 	}
-
 	ROS_INFO("[MAPPER]  Listening to tf frames:");
 	ROS_INFO("\t- Lidar sensor:\t %s", sensor_frame.c_str());
 	ROS_INFO("\t- Odometry:\t %s", odom_frame.c_str());
@@ -251,14 +265,19 @@ void LambdaMapper::laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& ms
 	for(unsigned int i=0; i < msg->ranges.size(); ++i, angle+=msg->angle_increment)
 	{
 		r = msg->ranges[i];
-		if(r == 0){ //we didn't hit an obstacle
+		if(r == 0 || std::isinf(r)){ //we didn't hit an obstacle
 			r = msg->range_max+1.; //+1 just to be sure
 		}
-		if(r < 1.2) //remove robot from scan 
+		if(r < radius_filter) //remove robot from scan 
 			continue;
 		
 		// Get points in the sensor frame
 		ar = msg->angle_min + i*msg->angle_increment;
+		//if ar is not in [-pi/2,pi/2], discard measurement
+		if( !(-angular_filter < ar && ar < angular_filter)){
+			continue;
+		}
+
 		geometry_msgs::PointStamped ptSensor;
 		ptSensor.header = msg->header;
 		ptSensor.point.x = r*cos(ar);
@@ -273,6 +292,7 @@ void LambdaMapper::laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& ms
 
 		r = std::sqrt(xr*xr + yr*yr); // re-process (r,angle) after the offset is removed
 		angle_r = fmod(std::atan2(yr,xr) - orientation.getAngle()*sign(orientation.getAxis().getZ()), 2*M_PI);
+		//angle_r = fmod(std::atan2(yr,xr) - orientation.getAngle()*sign(orientation.getAxis().getZ()), 2*M_PI);
 		xf = r*cos(angle_r);
 		yf = r*sin(angle_r);
 
@@ -368,10 +388,10 @@ void LambdaMapper::publish_occupancyGrid(){
 	origin.position.y = x*std::sin(angle)+y*std::cos(angle);
 	origin.position.z = 0.;
 
-        origin.orientation.x=orientation.x();
-        origin.orientation.y=orientation.y();
-        origin.orientation.z=orientation.z();
-        origin.orientation.w=orientation.w();
+    origin.orientation.x=orientation.x();
+    origin.orientation.y=orientation.y();
+    origin.orientation.z=orientation.z();
+    origin.orientation.w=orientation.w();
 
 	grid.header.stamp = ros::Time::now();
 	grid.header.frame_id = robot_frame;
@@ -403,10 +423,10 @@ void LambdaMapper::publish_lambdaGrid(){
 	origin.position.y = x*sin(angle)+y*cos(angle);
 	origin.position.z = 0.;
 
-        origin.orientation.x=orientation.x();
-        origin.orientation.y=orientation.y();
-        origin.orientation.z=orientation.z();
-        origin.orientation.w=orientation.w();
+    origin.orientation.x=orientation.x();
+    origin.orientation.y=orientation.y();
+    origin.orientation.z=orientation.z();
+    origin.orientation.w=orientation.w();
 
 	grid.header.stamp = ros::Time::now();
 	grid.header.frame_id = robot_frame;
@@ -443,9 +463,7 @@ void LambdaMapper::publish_lambdaGrid(){
 
 void LambdaMapper::evolve_map(const ros::Time t)
 {
-	
 	static ros::Time latest_update = ros::Time(0);
-	static std::array<float,2> offset = {0,0};
 	
 	geometry_msgs::Point pt;
 	geometry_msgs::TransformStamped transform;
@@ -466,9 +484,16 @@ void LambdaMapper::evolve_map(const ros::Time t)
 	e_map.resize(map_width, std::vector<LambdaCell>(map_height, LambdaCell()));
 	
 	if (rotation_map){					// The grid of lambda rotate around the robot
+
 		tf2::Quaternion q(transform.transform.rotation.x, transform.transform.rotation.y,
 					  transform.transform.rotation.z, transform.transform.rotation.w);
+
+		tf2::Matrix3x3 m(q);
+		double roll,pitch,yaw;
+		m.getRPY(roll,pitch,yaw);
+		q.setRPY(0,0,yaw);
 		orientation *= q.inverse();
+		
 		transform.transform.rotation.x = 0; 		//nullify rotation: we rotate the map instead of the cells
 		transform.transform.rotation.y = 0;
 		transform.transform.rotation.z = 0;
@@ -482,17 +507,18 @@ void LambdaMapper::evolve_map(const ros::Time t)
 		transform.transform.translation.z = 0.;
 
 		int x_,y_;
+		static std::array<float,2> offset = {0,0};
 		for(int x=-map_width/2 + robotOffsetMap; x<= map_width/2 + robotOffsetMap; ++x){
 			for(int y=-map_height/2; y<=map_height/2; ++y){
-				pt.x = ( (float)x + offset[0])*cell_size; // true position of the sample
-				pt.y = ( (float)y + offset[1])*cell_size;
+				pt.x = ((float)x + offset[0])*cell_size; // true position of the sample
+				pt.y = ((float)y + offset[1])*cell_size;
 				pt.z = 0;
 
 				tf2::doTransform(pt, pt, transform);
 
 				x_= std::round(pt.x / cell_size) + map_width/2 -robotOffsetMap;
 				y_= std::round(pt.y / cell_size) + map_height/2;
-		
+
 				if(x_<map_width && y_<map_height && x_>=0 && y_>=0 && map[x_][y_].is_measured()){
 					e_map[x - robotOffsetMap + map_width/2][y + map_height/2] = map[x_][y_];
 				}
@@ -507,23 +533,34 @@ void LambdaMapper::evolve_map(const ros::Time t)
 	}
 	else{							// The lambdas evolve in the grid fixed to the robot
 		int xi, yi;
+		static std::vector<float> offsetAllX;
+		offsetAllX.resize(map_width*map_height);
+		static std::vector<float> offsetAllY;
+		offsetAllY.resize(map_width*map_height);
 		for(int x=-map_width/2 + robotOffsetMap; x<= map_width/2 + robotOffsetMap; x++){
 			for(int y=-map_height/2; y<= map_height/2; y++){
 				// interpolation of the new grid with the previous one
-				pt.x = (float)x  * cell_size;
-				pt.y = (float)y  * cell_size;
-				pt.z = 0;
+				//pt.x = (float)x * cell_size;
+				//pt.y = (float)y * cell_size;
+				pt.x = ((float)x + offsetAllX[x+map_width/2-robotOffsetMap + (y+map_height/2)*map_width])  * cell_size;
+				pt.y = ((float)y + offsetAllY[x+map_width/2-robotOffsetMap + (y+map_height/2)*map_width]) * cell_size;
+				pt.z = 0.;
 				tf2::doTransform(pt, pt, transform);
 				
 				// nearest neighbour interpolation
 				xi = std::round(pt.x/cell_size) + map_width/2 - robotOffsetMap;
 				yi = std::round(pt.y/cell_size) + map_height/2;
+
 				if(xi >= 0 && yi >= 0 && xi < map_width && yi < map_height && map[xi][yi].is_measured()){
 					e_map[x -robotOffsetMap+ map_width/2][y + map_height/2] = map[xi][yi];
 				}
 				else{
 					e_map[x-robotOffsetMap+map_width/2][y+map_height/2] = LambdaCell(); // init the cell
 				}
+				
+				offsetAllX[x+map_width/2-robotOffsetMap + (y+map_height/2)*map_width] = pt.x / cell_size - std::round(pt.x / cell_size);
+				offsetAllY[x+map_width/2-robotOffsetMap + (y+map_height/2)*map_width] = pt.y / cell_size - std::round(pt.y / cell_size);
+
 			}
 		}
 	}
